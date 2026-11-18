@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mappemonde 3D — le monde en direct</title>
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E🌍%3C/text%3E%3C/svg%3E">
+    <link rel="stylesheet" href="style.css?v=20261118b">
+</head>
+<body class="hide-right">
+    <div id="globe-canvas"></div>
+
+    <!-- ===== Barre du haut ===== -->
+    <header class="topbar">
+        <button class="icon-btn only-mobile" id="btn-layers" title="Couches">☰</button>
+        <div class="brand">🌍 <span>Mappemonde</span></div>
+        <div class="search">
+            <input id="search" type="search" placeholder="Rechercher : pays, ville, vol (AFR123), satellite, navire…  ( / )" autocomplete="off" spellcheck="false">
+            <div id="search-results" class="search-results" hidden></div>
+        </div>
+        <div class="clock" id="clock" title="Heure UTC"></div>
+        <button class="icon-btn" id="btn-screenshot" title="Capture d'écran (P)">📷</button>
+        <button class="icon-btn" id="btn-fullscreen" title="Plein écran (F)">⛶</button>
+        <button class="icon-btn" id="btn-settings" title="Clés API navires / avions (K)">⚙</button>
+        <button class="icon-btn" id="btn-help" title="Aide et raccourcis (?)">?</button>
+        <button class="icon-btn only-mobile" id="btn-side" title="Détails">ℹ</button>
+    </header>
+
+    <!-- ===== Panneau gauche : couches ===== -->
+    <aside class="panel panel-left" id="layers-panel">
+        <div class="panel-head"><h2>Couches</h2><button class="icon-btn small" id="close-left" title="Replier">‹</button></div>
+        <div class="panel-body">
+
+            <section class="group">
+                <h3>Trafic en direct</h3>
+                <div class="layer">
+                    <button id="toggle-flights" class="switch" style="--c:#7dd3fc" title="Afficher les avions (OpenSky)"><span class="dot"></span><span class="lbl">✈ Avions</span><kbd>1</kbd><i class="tgl"></i></button>
+                    <div class="status" id="flight-status">en attente…</div>
+                </div>
+                <div class="layer">
+                    <button id="toggle-ships" class="switch" style="--c:#fbbf24" title="Afficher les navires (AIS)"><span class="dot"></span><span class="lbl">⚓ Navires</span><kbd>2</kbd><i class="tgl"></i></button>
+                    <div class="status" id="ship-status">en attente…</div>
+                    <div class="sub">
+                        <div class="chips" id="ship-legend"></div>
+                    </div>
+                </div>
+                <div class="layer">
+                    <button id="toggle-satellites" class="switch" style="--c:#e879f9" title="Afficher les satellites (CelesTrak)"><span class="dot"></span><span class="lbl">🛰 Satellites</span><kbd>3</kbd><i class="tgl"></i></button>
+                    <div class="status" id="satellite-status">en attente…</div>
+                    <div class="sub">
+                        <label class="field">Groupe
+                            <select id="sat-group">
+                                <option value="active">Échantillon varié (actifs)</option>
+                                <option value="stations">Stations (ISS, Tiangong…)</option>
+                                <option value="visual">Les plus brillants</option>
+                                <option value="gps-ops">GPS</option>
+                                <option value="galileo">Galileo</option>
+                                <option value="glo-ops">GLONASS</option>
+                                <option value="beidou">BeiDou</option>
+                                <option value="weather">Météo</option>
+                                <option value="science">Science</option>
+                                <option value="geo">Géostationnaires</option>
+                                <option value="starlink">Starlink (échantillon)</option>
+                                <option value="oneweb">OneWeb</option>
+                            </select>
+                        </label>
+                        <div class="btn-row">
+                            <button class="mini" id="btn-iss">🚀 Aller à l'ISS</button>
+                            <button class="mini" id="btn-css">🛰 Tiangong</button>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <section class="group">
+                <h3>Planète</h3>
+                <div class="layer">
+                    <button id="toggle-quakes" class="switch" style="--c:#ef4444" title="Afficher les séismes (USGS)"><span class="dot"></span><span class="lbl">🌐 Séismes</span><kbd>4</kbd><i class="tgl"></i></button>
+                    <div class="status" id="quake-status">en attente…</div>
+                    <div class="sub">
+                        <label class="field">Période
+                            <select id="quake-window">
+                                <option value="hour">Dernière heure</option>
+                                <option value="day">24 heures</option>
+                                <option value="week">7 jours (M 2,5+)</option>
+                                <option value="month">30 jours (M 4,5+)</option>
+                                <option value="sig">Significatifs (30 j)</option>
+                            </select>
+                        </label>
+                    </div>
+                </div>
+                <div class="layer">
+                    <button id="toggle-eonet" class="switch" style="--c:#fb923c" title="Afficher les événements naturels (NASA EONET)"><span class="dot"></span><span class="lbl">🔥 Événements naturels</span><kbd>5</kbd><i class="tgl"></i></button>
+                    <div class="status" id="eonet-status">en attente…</div>
+                    <div class="sub">
+                        <div class="chips" id="eonet-chips"></div>
+                    </div>
+                </div>
+            </section>
+
+            <section class="group">
+                <h3>Chiffres des pays</h3>
+                <div class="layer">
+                    <button id="toggle-stats" class="switch" style="--c:#a78bfa" title="Choroplethe + valeurs par pays (Banque mondiale). Necessite la carte politique."><span class="dot"></span><span class="lbl">Chiffres des pays</span><i class="tgl"></i></button>
+                    <div class="status" id="stat-status"></div>
+                    <div class="sub">
+                        <label class="field">Indicateur
+                            <select id="stat-indicator"></select>
+                        </label>
+                        <div id="stat-legend" class="stat-legend" style="display:none"></div>
+                    </div>
+                </div>
+            </section>
+
+            <section class="group">
+                <h3>Atmosphère &amp; espace</h3>
+                <div class="layer">
+                    <button id="toggle-weather" class="switch" style="--c:#22d3ee" title="Afficher la météo des grandes villes (Open-Meteo)"><span class="dot"></span><span class="lbl">🌡 Météo des villes</span><kbd>6</kbd><i class="tgl"></i></button>
+                    <div class="status" id="weather-status">en attente…</div>
+                    <div class="sub">
+                        <label class="field">Afficher
+                            <select id="weather-mode">
+                                <option value="temp">Température</option>
+                                <option value="wind">Vent</option>
+                                <option value="rain">Précipitations</option>
+                                <option value="aqi">Qualité de l'air (AQI)</option>
+                            </select>
+                        </label>
+                    </div>
+                </div>
+                <div class="layer">
+                    <button id="toggle-aurora" class="switch" style="--c:#4ade80" title="Afficher les aurores (NOAA SWPC)"><span class="dot"></span><span class="lbl">🌌 Aurores polaires</span><kbd>7</kbd><i class="tgl"></i></button>
+                    <div class="status" id="aurora-status">en attente…</div>
+                </div>
+                <div class="layer">
+                    <button id="toggle-daynight" class="switch active" style="--c:#fde047" title="Jour / nuit en temps réel"><span class="dot"></span><span class="lbl">🌗 Jour / nuit</span><kbd>8</kbd><i class="tgl"></i></button>
+                    <div class="status" id="sun-status">—</div>
+                </div>
+            </section>
+
+            <section class="group">
+                <h3>Fond de carte</h3>
+                <label class="field">Fond
+                    <select id="basemap">
+                        <option value="political">Carte politique (par défaut)</option>
+                        <option value="bluemarble">Relief NASA (Blue Marble)</option>
+                        <option value="terra">Satellite du jour — MODIS Terra</option>
+                        <option value="viirs">Satellite du jour — VIIRS</option>
+                    </select>
+                </label>
+                <label class="field" id="basemap-date-row">Date de l'image
+                    <input type="date" id="basemap-date">
+                </label>
+                <label class="field">Calque
+                    <select id="overlay">
+                        <option value="none">Aucun</option>
+                        <option value="MODIS_Terra_Cloud_Optical_Thickness">Nuages (épaisseur optique)</option>
+                        <option value="VIIRS_SNPP_Cloud_Optical_Thickness">Nuages (VIIRS — retard)</option>
+                        <option value="IMERG_Precipitation_Rate">Précipitations (IMERG)</option>
+                        <option value="GHRSST_L4_MUR_Sea_Surface_Temperature">Température de la mer</option>
+                        <option value="MODIS_Terra_Aerosol">Aérosols</option>
+                        <option value="MODIS_Terra_NDSI_Snow_Cover">Couverture neigeuse</option>
+                    </select>
+                </label>
+                <div class="layer">
+                    <button id="toggle-nightlights" class="switch" style="--c:#fcd34d" title="Lumières des villes côté nuit (VIIRS Black Marble)"><span class="dot"></span><span class="lbl">🌃 Lumières des villes (nuit)</span><i class="tgl"></i></button>
+                </div>
+                <div class="status" id="basemap-status"></div>
+                <div class="layer">
+                    <button id="toggle-labels" class="switch active" style="--c:#ffd700" title="Afficher / masquer les noms de pays"><span class="dot"></span><span class="lbl">Aa Noms de pays</span><kbd>9</kbd><i class="tgl"></i></button>
+                </div>
+            </section>
+        </div>
+    </aside>
+    <button class="edge-tab edge-left" id="open-left" title="Couches">☰ Couches</button>
+
+    <!-- ===== Panneau droit : sélection / direct ===== -->
+    <aside class="panel panel-right" id="side-panel">
+        <div class="panel-head">
+            <div class="tabs">
+                <button class="tab active" data-tab="info">Sélection</button>
+                <button class="tab" data-tab="live">Direct</button>
+            </div>
+            <button class="icon-btn small" id="close-right" title="Replier">›</button>
+        </div>
+        <div class="panel-body">
+            <div id="info-panel" class="tab-pane active" data-pane="info">
+                <p class="hint">Cliquez sur un pays, un avion, un navire, un satellite, un séisme… ou utilisez la recherche.</p>
+            </div>
+            <div id="live-panel" class="tab-pane" data-pane="live"></div>
+        </div>
+    </aside>
+    <button class="edge-tab edge-right" id="open-right" title="Détails">Détails ›</button>
+
+    <!-- ===== Dock de navigation ===== -->
+    <nav class="dock">
+        <button id="rotate-left" class="dock-btn" title="Tourner à gauche (←)">◀</button>
+        <button id="rotate-up" class="dock-btn" title="Incliner vers le haut (↑)">▲</button>
+        <button id="rotate-down" class="dock-btn" title="Incliner vers le bas (↓)">▼</button>
+        <button id="rotate-right" class="dock-btn" title="Tourner à droite (→)">▶</button>
+        <span class="sep"></span>
+        <button id="zoom-out" class="dock-btn" title="Dézoomer (−)">−</button>
+        <button id="zoom-in" class="dock-btn" title="Zoomer (+)">+</button>
+        <button id="rotate-center" class="dock-btn" title="Recentrer (Échap)">⌖</button>
+        <span class="sep"></span>
+        <button id="toggle-rotation" class="dock-btn" title="Pause / reprise de la rotation (Espace)">⏸</button>
+        <button id="btn-measure" class="dock-btn" title="Mesurer une distance (M)">📏</button>
+        <button id="btn-follow" class="dock-btn follow" title="Arrêter le suivi" hidden>👁 ✕</button>
+    </nav>
+
+    <!-- ===== Barre d'état ===== -->
+    <footer class="statusbar">
+        <span id="cursor-info">Curseur : —</span>
+        <span id="sun-info"></span>
+        <span id="kp-info"></span>
+        <span class="grow"></span>
+        <span id="zoom-info"></span>
+    </footer>
+
+    <div id="diag" class="diag" hidden><button class="icon-btn small">✕</button><b>⚠ Diagnostic</b><div class="diag-body"></div></div>
+
+    <!-- ===== Aide ===== -->
+    <div class="modal" id="help" hidden>
+        <div class="modal-box">
+            <button class="icon-btn small modal-close" id="help-close">✕</button>
+            <h2>Raccourcis</h2>
+            <div class="keys">
+                <div><kbd>/</kbd> Rechercher</div><div><kbd>1</kbd>–<kbd>9</kbd> Activer / couper les couches</div>
+                <div><kbd>← ↑ ↓ →</kbd> Tourner le globe</div><div><kbd>+</kbd> <kbd>−</kbd> ou molette : zoom</div>
+                <div><kbd>Espace</kbd> Pause de la rotation</div><div><kbd>Échap</kbd> Recentrer / arrêter le suivi</div>
+                <div><kbd>M</kbd> Mesurer une distance (2 clics)</div><div><kbd>P</kbd> Capture d'écran</div>
+                <div><kbd>F</kbd> Plein écran</div><div><kbd>L</kbd> Panneau des couches</div>
+            </div>
+            <p class="hint">Cliquez sur un avion, un navire, un satellite ou un séisme pour le détailler, puis « Suivre » pour que le globe l'accompagne.</p>
+        </div>
+    </div>
+
+    <!-- ===== Réglages : clés API (navires / avions) ===== -->
+    <div class="modal" id="settings" hidden>
+        <div class="modal-box">
+            <button class="icon-btn small modal-close" id="settings-close">✕</button>
+            <h2>⚙ Clés API</h2>
+            <p class="hint">Ces clés sont envoyées au serveur local, stockées sur cette machine (fichier <code>.api_keys.json</code>) et appliquées immédiatement, sans redémarrer. Elles ne sont jamais renvoyées à l'écran.</p>
+
+            <div class="key-group">
+                <h3>⚓ Navires — <span class="key-src">aisstream.io</span></h3>
+                <p class="key-hint">Flux AIS temps réel (gratuit : <a href="https://aisstream.io" target="_blank" rel="noopener">aisstream.io</a>). Sans clé, la couche navires reste vide.</p>
+                <label class="field">Clé API
+                    <input id="set-ais-key" type="password" placeholder="Collez ici votre clé aisstream.io" autocomplete="off" spellcheck="false">
+                </label>
+                <div class="key-state" id="set-ais-state"></div>
+            </div>
+
+            <div class="key-group">
+                <h3>✈ Avions — <span class="key-src">OpenSky Network</span></h3>
+                <p class="key-hint">Vol en vol via OpenSky. Compte gratuit = 400 crédits/jour ; avec un compte OAuth2 = 4 000 crédits/jour. Sans identifiants, le flux reste anonyme (limité).</p>
+                <label class="field">Client ID
+                    <input id="set-osc-id" type="text" placeholder="clientId (ex. 9b2f…)" autocomplete="off" spellcheck="false">
+                </label>
+                <label class="field">Client Secret
+                    <input id="set-osc-secret" type="password" placeholder="clientSecret" autocomplete="off" spellcheck="false">
+                </label>
+                <div class="key-state" id="set-osc-state"></div>
+            </div>
+
+            <div class="modal-actions">
+                <button class="mini" id="set-clear-ais">Retirer la clé navires</button>
+                <button class="mini" id="set-clear-osc">Retirer les identifiants avions</button>
+                <span class="grow"></span>
+                <button class="mini primary" id="set-save">💾 Enregistrer</button>
+            </div>
+            <div class="key-msg" id="set-msg"></div>
+        </div>
+    </div>
+
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+                "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+            }
+        }
+    </script>
+    <script src="https://unpkg.com/satellite.js@5.0.0/dist/satellite.min.js"></script>
+    <script type="module" src="globe.js?v=20261118c"></script>
+</body>
+</html>
